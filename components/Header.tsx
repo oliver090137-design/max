@@ -1,12 +1,15 @@
 
 import React from 'react';
+import { useCart } from '../contexts/CartContext';
 
 interface HeaderProps {
-  onNavigate: (page: 'home' | 'detail' | 'live') => void;
+  onNavigate: (page: 'home' | 'detail' | 'menu' | 'admin') => void;
   activePage: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ onNavigate, activePage }) => {
+  const { setIsCartOpen, totalItems } = useCart();
+
   return (
     <header className="fixed top-0 w-full z-50 bg-background-dark/90 backdrop-blur-md border-b border-primary/20 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
@@ -30,14 +33,12 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, activePage }) => {
             >
               首頁
             </button>
-            <button className="hover:text-primary transition-colors text-gray-300">商店</button>
             <button 
-              onClick={() => onNavigate('live')} 
-              className={`hover:text-primary transition-colors ${activePage === 'live' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-300'}`}
+              onClick={() => onNavigate('menu')} 
+              className={`hover:text-primary transition-colors ${activePage === 'menu' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-300'}`}
             >
-              直播中心
+              美味菜單
             </button>
-            <button className="hover:text-primary transition-colors text-gray-300">巡迴地圖</button>
           </nav>
         </div>
 
@@ -50,9 +51,17 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, activePage }) => {
               type="text" 
             />
           </div>
-          <button className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-primary text-background-dark font-bold rounded-full hover:bg-white transition-all shadow-lg shadow-primary/20">
-            <span className="material-symbols-outlined text-xl">account_circle</span>
-            <span className="text-xs tracking-tighter hidden sm:inline">會員登入</span>
+          
+          <button 
+            className="relative p-2 text-gray-300 hover:text-primary transition-colors"
+            onClick={() => setIsCartOpen(true)}
+          >
+            <span className="material-symbols-outlined text-2xl">shopping_cart</span>
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-background-dark text-[10px] font-bold rounded-full size-5 flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
           </button>
         </div>
       </div>

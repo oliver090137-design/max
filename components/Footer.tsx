@@ -1,7 +1,11 @@
 
 import React from 'react';
 
-const Footer: React.FC = () => {
+interface FooterProps {
+  onNavigate?: (page: 'home' | 'detail' | 'menu' | 'admin') => void;
+}
+
+const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
     <footer className="bg-background-dark border-t border-primary/20 py-16 sm:py-24 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 sm:gap-16 relative z-10">
@@ -39,9 +43,18 @@ const Footer: React.FC = () => {
             <h5 className="text-primary font-bold uppercase tracking-[0.3em] text-xs mb-6 sm:mb-8">關於我們</h5>
             <ul className="space-y-4 text-sm text-gray-500 font-serif">
               <li><button className="hover:text-white transition-colors">品牌故事</button></li>
-              <li><button className="hover:text-white transition-colors">直播現場</button></li>
               <li><button className="hover:text-white transition-colors">加盟合作</button></li>
               <li><button className="hover:text-white transition-colors">聯絡我們</button></li>
+              {onNavigate && (
+                <li>
+                  <button 
+                    onClick={() => onNavigate('admin')} 
+                    className="hover:text-primary transition-colors text-xs opacity-50"
+                  >
+                    管理後台
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
           <div className="col-span-2 md:col-span-1">
