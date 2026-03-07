@@ -14,8 +14,19 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'settings'>('menu');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [advertisements, setAdvertisements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingAdId, setEditingAdId] = useState<string | null>(null);
+  
+  // Advertisement Form State
+  const [adFormData, setAdFormData] = useState({
+    imageUrl: '',
+    title: '',
+    link: '',
+    order: 0
+  });
+  const [isUploadingAd, setIsUploadingAd] = useState(false);
   
   // Master Image State
   const [masterImage, setMasterImage] = useState<string | null>(null);
@@ -25,16 +36,34 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
   const [paymentImage, setPaymentImage] = useState<string | null>(null);
   const [isUploadingPayment, setIsUploadingPayment] = useState(false);
 
+  // Options State
+  const [categories, setCategories] = useState<string[]>(["秘傳禽饌", "豚肉逸品", "金玉良緣", "禪風蔬食"]);
+  const [tags, setTags] = useState<string[]>(["人氣首選", "店長推薦", "新品上市", "季節限定", "素食可食", "售完"]);
+  const [newCategory, setNewCategory] = useState('');
+  const [newTag, setNewTag] = useState('');
+
+  // Content State
+  const [siteContent, setSiteContent] = useState<Record<string, string>>({
+    about: '',
+    story: '',
+    franchise: '',
+    contact: '',
+    delivery: '',
+    faq: '',
+    terms: ''
+  });
+
   // Form State
   const [formData, setFormData] = useState<Omit<Product, 'id'>>({
     name: '',
     price: 0,
-    category: '經典滷味',
+    category: '秘傳禽饌',
     imageUrl: '',
     description: '',
     tag: '',
     rating: 5.0,
-    reviewCount: 0
+    reviewCount: 0,
+    isFeatured: false
   });
 
   useEffect(() => {
@@ -93,9 +122,55 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
     };
     fetchPaymentImage();
 
+    // Fetch Site Content
+    const fetchSiteContent = async () => {
+      try {
+        const docRef = doc(db, "settings", "content");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setSiteContent(docSnap.data() as Record<string, string>);
+        }
+      } catch (error) {
+        console.error("Error fetching site content:", error);
+      }
+    };
+    fetchSiteContent();
+
+    // Fetch Options (Categories & Tags)
+    const fetchOptions = async () => {
+      try {
+        const docRef = doc(db, "settings", "options");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.categories && Array.isArray(data.categories)) setCategories(data.categories);
+          if (data.tags && Array.isArray(data.tags)) setTags(data.tags);
+        } else {
+          // Initialize if not exists
+          await setDoc(docRef, {
+            categories: ["經典牛饌", "豚肉逸品", "禪風蔬食", "掌櫃大拼盤"],
+            tags: ["人氣首選", "店長推薦", "新品上市", "季節限定", "素食可食", "售完"]
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching options:", error);
+      }
+    };
+    fetchOptions();
+
+    // Fetch Advertisements
+    const unsubscribeAds = onSnapshot(query(collection(db, "advertisements"), orderBy("order", "asc")), (snapshot) => {
+      const adsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAdvertisements(adsData);
+    });
+
     return () => {
       unsubscribeMenu();
       unsubscribeOrders();
+      unsubscribeAds();
     };
   }, [isAuthenticated]);
 
@@ -202,12 +277,138 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    if (categories.includes(newCategory.trim())) {
+      alert("此分類已存在");
+      return;
+    }
+    const updatedCategories = [...categories, newCategory.trim()];
+    setCategories(updatedCategories);
+    setNewCategory('');
+    await setDoc(doc(db, "settings", "options"), { categories: updatedCategories }, { merge: true });
+  };
+
+  const handleRemoveCategory = async (category: string) => {
+    if (!window.confirm(`確定要刪除分類「${category}」嗎？`)) return;
+    const updatedCategories = categories.filter(c => c !== category);
+    setCategories(updatedCategories);
+    await setDoc(doc(db, "settings", "options"), { categories: updatedCategories }, { merge: true });
+  };
+
+  const handleAddTag = async () => {
+    if (!newTag.trim()) return;
+    if (tags.includes(newTag.trim())) {
+      alert("此標籤已存在");
+      return;
+    }
+    const updatedTags = [...tags, newTag.trim()];
+    setTags(updatedTags);
+    setNewTag('');
+    await setDoc(doc(db, "settings", "options"), { tags: updatedTags }, { merge: true });
+  };
+
+  const handleAddAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adFormData.imageUrl) {
+      alert("請上傳廣告圖片");
+      return;
+    }
+    try {
+      if (editingAdId) {
+        await updateDoc(doc(db, "advertisements", editingAdId), {
+          ...adFormData,
+          updatedAt: new Date().toISOString()
+        });
+        setEditingAdId(null);
+        alert("廣告更新成功！");
+      } else {
+        await addDoc(collection(db, "advertisements"), {
+          ...adFormData,
+          createdAt: new Date().toISOString()
+        });
+        alert("廣告新增成功！");
+      }
+      setAdFormData({ imageUrl: '', title: '', link: '', order: advertisements.length + 1 });
+    } catch (error) {
+      console.error("Error saving advertisement:", error);
+      alert("儲存失敗");
+    }
+  };
+
+  const handleEditAd = (ad: any) => {
+    setEditingAdId(ad.id);
+    setAdFormData({
+      imageUrl: ad.imageUrl,
+      title: ad.title || '',
+      link: ad.link || '',
+      order: ad.order || 0
+    });
+    // Scroll to the ad form
+    const adForm = document.getElementById('ad-management-form');
+    if (adForm) {
+      adForm.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleCancelAdEdit = () => {
+    setEditingAdId(null);
+    setAdFormData({ imageUrl: '', title: '', link: '', order: advertisements.length + 1 });
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (window.confirm("確定要刪除此廣告嗎？")) {
+      try {
+        await deleteDoc(doc(db, "advertisements", id));
+      } catch (error) {
+        console.error("Error deleting advertisement:", error);
+      }
+    }
+  };
+
+  const handleAdImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAdFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    if (!window.confirm(`確定要刪除標籤「${tag}」嗎？`)) return;
+    const updatedTags = tags.filter(t => t !== tag);
+    setTags(updatedTags);
+    await setDoc(doc(db, "settings", "options"), { tags: updatedTags }, { merge: true });
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'price' || name === 'rating' || name === 'reviewCount' ? Number(value) : value
-    }));
+    const { name, value, type } = e.target;
+    setFormData(prev => {
+      const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+      const newData = {
+        ...prev,
+        [name]: name === 'price' || name === 'rating' || name === 'reviewCount' ? Number(val) : val
+      };
+      
+      return newData;
+    });
+  };
+
+  const handleContentChange = (key: string, value: string) => {
+    setSiteContent(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveContent = async () => {
+    try {
+      await setDoc(doc(db, "settings", "content"), siteContent);
+      alert("內容更新成功！");
+    } catch (error) {
+      console.error("Error saving content:", error);
+      alert("儲存失敗");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,12 +426,13 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
       setFormData({
         name: '',
         price: 0,
-        category: '經典滷味',
+        category: categories[0] || '秘傳禽饌',
         imageUrl: '',
         description: '',
         tag: '',
         rating: 5.0,
-        reviewCount: 0
+        reviewCount: 0,
+        isFeatured: false
       });
     } catch (error) {
       console.error("Error saving document: ", error);
@@ -248,7 +450,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
       description: product.description || '',
       tag: product.tag || '',
       rating: product.rating || 5.0,
-      reviewCount: product.reviewCount || 0
+      reviewCount: product.reviewCount || 0,
+      isFeatured: product.isFeatured || false
     });
     window.scrollTo(0, 0);
   };
@@ -269,12 +472,13 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
     setFormData({
       name: '',
       price: 0,
-      category: '經典滷味',
+      category: categories[0] || '經典牛饌',
       imageUrl: '',
       description: '',
       tag: '',
       rating: 5.0,
-      reviewCount: 0
+      reviewCount: 0,
+      isFeatured: false
     });
   };
 
@@ -445,11 +649,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
                         onChange={handleInputChange}
                         className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
                       >
-                        <option value="經典滷味">經典滷味</option>
-                        <option value="主食系列">主食系列</option>
-                        <option value="清爽小菜">清爽小菜</option>
-                        <option value="飲品酒水">飲品酒水</option>
-                        <option value="其他">其他</option>
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -536,25 +738,68 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">標籤 (選填)</label>
-                      <input
-                        type="text"
-                        name="tag"
-                        value={formData.tag}
-                        onChange={handleInputChange}
-                        placeholder="例如：人氣首選"
-                        className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="tag"
+                          value={formData.tag}
+                          onChange={handleInputChange}
+                          placeholder="例如：人氣首選"
+                          className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                        />
+                        {formData.tag && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, tag: '' }))}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
+                            title="清除標籤"
+                          >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {tags.map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, tag }))}
+                            className={`text-xs px-2 py-1 rounded border transition-colors ${
+                              formData.tag === tag 
+                                ? 'bg-primary text-background-dark border-primary font-bold' 
+                                : 'border-white/20 text-gray-400 hover:border-primary/50 hover:text-white'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">評分 (預設 5.0)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        name="rating"
-                        value={formData.rating}
-                        onChange={handleInputChange}
-                        className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">評分 (預設 5.0)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          name="rating"
+                          value={formData.rating}
+                          onChange={handleInputChange}
+                          className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 bg-black/20 border border-white/10 rounded px-3 py-2">
+                        <input
+                          type="checkbox"
+                          id="isFeatured"
+                          name="isFeatured"
+                          checked={formData.isFeatured}
+                          onChange={handleInputChange}
+                          className="size-4 rounded border-white/10 text-primary focus:ring-primary bg-black/40"
+                        />
+                        <label htmlFor="isFeatured" className="text-sm font-bold text-primary cursor-pointer">
+                          職人精選 (顯示於首頁)
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -599,7 +844,12 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
                           <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">{product.category}</span>
                           {product.tag && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">{product.tag}</span>}
                         </div>
-                        <h3 className="font-bold text-lg truncate">{product.name}</h3>
+                        <h3 className="font-bold text-lg truncate flex items-center gap-2">
+                          {product.name}
+                          {product.isFeatured && (
+                            <span className="material-symbols-outlined text-primary text-sm fill-1">star</span>
+                          )}
+                        </h3>
                         <p className="text-sm text-gray-400 truncate">{product.description}</p>
                         <div className="text-primary font-bold mt-1">NT$ {product.price}</div>
                       </div>
@@ -781,6 +1031,341 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
                   </label>
                   <p className="text-[10px] text-gray-500 text-center mt-2">
                     此 QR Code 將顯示於結帳頁面供客人掃描付款
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Category Management */}
+            <div className="bg-white/5 p-6 rounded-lg border border-white/10">
+              <h2 className="text-xl font-bold mb-6 text-primary border-b border-primary/20 pb-2 flex justify-between items-center">
+                <span>分類管理</span>
+                <button 
+                  onClick={async () => {
+                    if (window.confirm("確定要重置分類與標籤為預設值嗎？這將覆蓋目前的設定。")) {
+                      const defaultCategories = ["經典牛饌", "豚肉逸品", "禪風蔬食", "掌櫃大拼盤"];
+                      const defaultTags = ["人氣首選", "店長推薦", "新品上市", "季節限定", "素食可食", "售完"];
+                      await setDoc(doc(db, "settings", "options"), {
+                        categories: defaultCategories,
+                        tags: defaultTags
+                      });
+                      setCategories(defaultCategories);
+                      setTags(defaultTags);
+                      alert("已重置為預設值");
+                    }
+                  }}
+                  className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500/30 transition-colors"
+                >
+                  重置預設
+                </button>
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="輸入新分類名稱"
+                    className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                  />
+                  <button
+                    onClick={handleAddCategory}
+                    disabled={!newCategory.trim()}
+                    className="bg-primary text-background-dark font-bold px-4 rounded hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    新增
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {categories.map(cat => (
+                    <div key={cat} className="flex items-center justify-between bg-black/20 p-3 rounded border border-white/5">
+                      <span>{cat}</span>
+                      <button
+                        onClick={() => handleRemoveCategory(cat)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                        title="刪除分類"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Content Management */}
+            <div className="bg-white/5 p-6 rounded-lg border border-white/10 lg:col-span-2">
+              <h2 className="text-xl font-bold mb-6 text-primary border-b border-primary/20 pb-2 flex justify-between items-center">
+                <span>內容管理 (關於我們 / 服務條款)</span>
+                <button 
+                  onClick={handleSaveContent}
+                  className="bg-primary text-background-dark font-bold px-6 py-2 rounded hover:bg-white transition-colors"
+                >
+                  儲存所有內容
+                </button>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">關於我們 / 品牌故事</label>
+                    <textarea
+                      value={siteContent.story}
+                      onChange={(e) => handleContentChange('story', e.target.value)}
+                      rows={6}
+                      placeholder="輸入品牌故事內容..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">浪愛回甘計畫</label>
+                    <textarea
+                      value={siteContent.franchise}
+                      onChange={(e) => handleContentChange('franchise', e.target.value)}
+                      rows={4}
+                      placeholder="輸入浪愛回甘計畫資訊..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">聯絡我們</label>
+                    <textarea
+                      value={siteContent.contact}
+                      onChange={(e) => handleContentChange('contact', e.target.value)}
+                      rows={4}
+                      placeholder="輸入聯絡資訊..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">配送資訊</label>
+                    <textarea
+                      value={siteContent.delivery}
+                      onChange={(e) => handleContentChange('delivery', e.target.value)}
+                      rows={4}
+                      placeholder="輸入配送說明..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">常見問題 (FAQ)</label>
+                    <textarea
+                      value={siteContent.faq}
+                      onChange={(e) => handleContentChange('faq', e.target.value)}
+                      rows={6}
+                      placeholder="輸入常見問題解答..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">服務條款</label>
+                    <textarea
+                      value={siteContent.terms}
+                      onChange={(e) => handleContentChange('terms', e.target.value)}
+                      rows={4}
+                      placeholder="輸入服務條款內容..."
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tag Management */}
+            <div className="bg-white/5 p-6 rounded-lg border border-white/10">
+              <h2 className="text-xl font-bold mb-6 text-primary border-b border-primary/20 pb-2">
+                標籤管理
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="輸入新標籤名稱"
+                    className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    disabled={!newTag.trim()}
+                    className="bg-primary text-background-dark font-bold px-4 rounded hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    新增
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map(tag => (
+                    <div key={tag} className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded border border-white/5">
+                      <span className="text-sm">{tag}</span>
+                      <button
+                        onClick={() => handleRemoveTag(tag)}
+                        className="text-red-400 hover:text-red-300 flex items-center"
+                        title="刪除標籤"
+                      >
+                        <span className="material-symbols-outlined text-xs">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Advertisement Management */}
+            <div id="ad-management-form" className="bg-white/5 p-6 rounded-lg border border-white/10 lg:col-span-2">
+              <h2 className="text-xl font-bold mb-6 text-primary border-b border-primary/20 pb-2">
+                首頁廣告管理 (3D 旋轉廣告)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <form onSubmit={handleAddAd} className="space-y-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-xs uppercase tracking-widest text-gray-500">
+                      {editingAdId ? '編輯廣告' : '新增廣告'}
+                    </label>
+                    {editingAdId && (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelAdEdit}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        取消編輯
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">廣告圖片 (可拖拉)</label>
+                    <div 
+                      className="relative aspect-video w-full bg-black/40 rounded-lg overflow-hidden border-2 border-dashed border-white/10 hover:border-primary/50 transition-colors flex items-center justify-center group"
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file && file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setAdFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    >
+                      {adFormData.imageUrl ? (
+                        <>
+                          <img src={adFormData.imageUrl} alt="Ad Preview" className="w-full h-full object-cover" />
+                          <button 
+                            type="button"
+                            onClick={() => setAdFormData(prev => ({ ...prev, imageUrl: '' }))}
+                            className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-center p-4">
+                          <span className="material-symbols-outlined text-4xl text-gray-600 mb-2">add_photo_alternate</span>
+                          <p className="text-xs text-gray-500">拖拉圖片至此 或 點擊上傳</p>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleAdImageUpload} 
+                            className="absolute inset-0 opacity-0 cursor-pointer" 
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">廣告標題</label>
+                    <input
+                      type="text"
+                      value={adFormData.title}
+                      onChange={(e) => setAdFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="例如：新品上市"
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">連結 (選填)</label>
+                    <input
+                      type="text"
+                      value={adFormData.link}
+                      onChange={(e) => setAdFormData(prev => ({ ...prev, link: e.target.value }))}
+                      placeholder="點擊廣告後跳轉的網址"
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs uppercase tracking-widest text-gray-500 mb-1">排序</label>
+                      <input
+                        type="number"
+                        value={adFormData.order}
+                        onChange={(e) => setAdFormData(prev => ({ ...prev, order: Number(e.target.value) }))}
+                        className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                      />
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <button
+                        type="submit"
+                        className="flex-1 bg-primary text-background-dark font-bold px-8 py-2 rounded hover:bg-white transition-colors"
+                      >
+                        {editingAdId ? '更新廣告' : '新增廣告'}
+                      </button>
+                      {editingAdId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelAdEdit}
+                          className="px-4 py-2 border border-white/20 rounded hover:bg-white/10 transition-colors"
+                        >
+                          取消
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </form>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-gray-400">目前廣告列表 ({advertisements.length})</h3>
+                  <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-2">
+                    {advertisements.map((ad) => (
+                      <div key={ad.id} className="bg-black/20 border border-white/5 p-3 rounded flex gap-4 items-center group">
+                        <div className="size-16 rounded overflow-hidden bg-black/40 shrink-0">
+                          <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">#{ad.order}</span>
+                            <h4 className="font-bold truncate text-sm">{ad.title || '未命名廣告'}</h4>
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate">{ad.link || '無連結'}</p>
+                        </div>
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => handleEditAd(ad)}
+                            className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded"
+                            title="編輯廣告"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteAd(ad.id)}
+                            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"
+                            title="刪除廣告"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {advertisements.length === 0 && (
+                      <div className="text-center py-8 text-gray-600 border border-dashed border-white/5 rounded">
+                        目前尚無廣告
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 italic">
+                    * 廣告將以 3D 旋轉方式顯示於首頁。建議上傳 3:4 或 2:3 比例的圖片效果最佳。
                   </p>
                 </div>
               </div>

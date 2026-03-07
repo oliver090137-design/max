@@ -1,3 +1,11 @@
+export interface Advertisement {
+  id: string;
+  imageUrl: string;
+  title: string;
+  link?: string;
+  order: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -8,6 +16,7 @@ export interface Product {
   reviewCount?: number;
   tag?: string;
   description?: string;
+  isFeatured?: boolean;
 }
 
 export interface OrderItem {

@@ -3,7 +3,7 @@ import React from 'react';
 import { useCart } from '../contexts/CartContext';
 
 interface HeaderProps {
-  onNavigate: (page: 'home' | 'detail' | 'menu' | 'admin') => void;
+  onNavigate: (page: any, idOrKey?: string) => void;
   activePage: string;
 }
 

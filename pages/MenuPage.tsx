@@ -1,20 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import { useMenu } from "../hooks/useMenu";
 
 interface MenuPageProps {
-  onNavigate: (page: 'home' | 'detail' | 'menu' | 'admin', productId?: string) => void;
+  onNavigate: (page: any, idOrKey?: string) => void;
+  initialCategory?: string;
 }
 
-const MenuPage: React.FC<MenuPageProps> = ({ onNavigate }) => {
+const MenuPage: React.FC<MenuPageProps> = ({ onNavigate, initialCategory = 'all' }) => {
   const { products, loading } = useMenu();
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
+  const [categories, setCategories] = useState<string[]>(['all']);
 
-  // Get unique categories
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.category || '其他')))];
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const docRef = doc(db, "settings", "options");
+        const docSnap = await getDoc(docRef);
+        
+        let fetchedCategories: string[] = [];
+        if (docSnap.exists() && docSnap.data().categories && Array.isArray(docSnap.data().categories) && docSnap.data().categories.length > 0) {
+          fetchedCategories = docSnap.data().categories;
+        } else {
+          // Default fallback if no settings found or empty
+          fetchedCategories = ["秘傳禽饌", "豚肉逸品", "金玉良緣", "禪風蔬食"];
+        }
+
+        // Get categories from products that might not be in the settings
+        const productCategories = new Set<string>(products.map(p => p.category || '其他'));
+        
+        // Combine: 'all' + configured categories + any extra categories from products
+        const uniqueCategories: string[] = ['all', ...fetchedCategories];
+        
+        // Add any product categories that are not in the configured list
+        productCategories.forEach((cat: string) => {
+          if (!uniqueCategories.includes(cat) && cat !== 'all') {
+            uniqueCategories.push(cat);
+          }
+        });
+
+        setCategories(uniqueCategories);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        // Fallback to product-derived categories
+        setCategories(['all', ...Array.from(new Set(products.map(p => p.category || '其他')))]);
+      }
+    };
+
+    if (!loading) {
+      fetchCategories();
+    }
+  }, [products, loading]);
 
   const filteredProducts = activeCategory === 'all' 
     ? products 
-    : products.filter(p => (p.category || '其他') === activeCategory);
+    : products.filter(p => {
+        const cat = p.category || '其他';
+        if (cat === activeCategory) return true;
+        
+        // Mapping for backward compatibility or user preference
+        if (activeCategory === '秘傳禽饌' && (cat === '雞肉類' || cat === '雞肉')) return true;
+        if (activeCategory === '豚肉逸品' && (cat === '豬肉類' || cat === '豬肉')) return true;
+        if (activeCategory === '金玉良緣' && (cat === '蛋類' || cat === '蛋' || cat === '雞蛋')) return true;
+        if (activeCategory === '禪風蔬食' && (cat === '蔬菜類' || cat === '蔬菜')) return true;
+        
+        return false;
+      });
 
   return (
     <div className="pt-24 min-h-screen bg-background-dark pb-24">

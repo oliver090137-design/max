@@ -2,7 +2,7 @@
 import React from 'react';
 
 interface FooterProps {
-  onNavigate?: (page: 'home' | 'detail' | 'menu' | 'admin') => void;
+  onNavigate: (page: any, idOrKey?: string) => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
@@ -18,7 +18,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </div>
             <h2 className="font-calligraphy text-3xl font-bold tracking-widest text-primary pt-1">貓掌櫃</h2>
           </div>
-          <p className="text-sm text-gray-500 leading-loose mb-8 font-serif">傳承職人靈魂的琥珀色滷味。品質、工藝，以及深夜裡最真摯的暖心慰藉。每一口慢火細熬，都是對生活的溫柔禮讚。</p>
+          <p className="text-sm text-gray-500 leading-loose mb-8 font-serif">傳承職人靈魂的琥珀色滷味。品質、工藝，以及深夜裡最真摯的暖心慰藉。每一口慢火細熬，都是對味蕾的溫柔致敬。</p>
           <div className="flex gap-4">
             <button className="size-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all border border-white/10">
               <span className="material-symbols-outlined text-xl">share</span>
@@ -33,18 +33,18 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div>
             <h5 className="text-primary font-bold uppercase tracking-[0.3em] text-xs mb-6 sm:mb-8">產品菜單</h5>
             <ul className="space-y-4 text-sm text-gray-500 font-serif">
-              <li><button className="hover:text-white transition-colors">經典牛饌</button></li>
-              <li><button className="hover:text-white transition-colors">豚肉逸品</button></li>
-              <li><button className="hover:text-white transition-colors">禪風蔬食</button></li>
-              <li><button className="hover:text-white transition-colors">掌櫃大拼盤</button></li>
+              <li><button onClick={() => onNavigate('menu', '秘傳禽饌')} className="hover:text-white transition-colors">秘傳禽饌 (雞)</button></li>
+              <li><button onClick={() => onNavigate('menu', '豚肉逸品')} className="hover:text-white transition-colors">豚肉逸品 (豬)</button></li>
+              <li><button onClick={() => onNavigate('menu', '金玉良緣')} className="hover:text-white transition-colors">金玉良緣 (蛋)</button></li>
+              <li><button onClick={() => onNavigate('menu', '禪風蔬食')} className="hover:text-white transition-colors">禪風蔬食 (蔬菜)</button></li>
             </ul>
           </div>
           <div>
             <h5 className="text-primary font-bold uppercase tracking-[0.3em] text-xs mb-6 sm:mb-8">關於我們</h5>
             <ul className="space-y-4 text-sm text-gray-500 font-serif">
-              <li><button className="hover:text-white transition-colors">品牌故事</button></li>
-              <li><button className="hover:text-white transition-colors">加盟合作</button></li>
-              <li><button className="hover:text-white transition-colors">聯絡我們</button></li>
+              <li><button onClick={() => onNavigate('content', 'story')} className="hover:text-white transition-colors">品牌故事</button></li>
+              <li><button onClick={() => onNavigate('content', 'franchise')} className="hover:text-white transition-colors">浪愛回甘計畫</button></li>
+              <li><button onClick={() => onNavigate('content', 'contact')} className="hover:text-white transition-colors">聯絡我們</button></li>
               {onNavigate && (
                 <li>
                   <button 
@@ -60,10 +60,10 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="col-span-2 md:col-span-1">
             <h5 className="text-primary font-bold uppercase tracking-[0.3em] text-xs mb-6 sm:mb-8">顧客服務</h5>
             <ul className="space-y-4 text-sm text-gray-500 font-serif">
-              <li><button className="hover:text-white transition-colors">訂單查詢</button></li>
-              <li><button className="hover:text-white transition-colors">配送資訊</button></li>
-              <li><button className="hover:text-white transition-colors">常見問題</button></li>
-              <li><button className="hover:text-white transition-colors">服務條款</button></li>
+              <li><button onClick={() => onNavigate('content', 'contact')} className="hover:text-white transition-colors">訂單查詢</button></li>
+              <li><button onClick={() => onNavigate('content', 'delivery')} className="hover:text-white transition-colors">配送資訊</button></li>
+              <li><button onClick={() => onNavigate('content', 'faq')} className="hover:text-white transition-colors">常見問題</button></li>
+              <li><button onClick={() => onNavigate('content', 'terms')} className="hover:text-white transition-colors">服務條款</button></li>
             </ul>
           </div>
         </div>
