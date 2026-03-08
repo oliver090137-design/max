@@ -5,114 +5,174 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* 3D Rotating Carousel */
-.banner-container {
+/* Artisan Black Gold Card List */
+.cards-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
   width: 100%;
-  height: 450px;
-  text-align: center;
-  overflow: hidden;
-  position: relative;
-  perspective: 2000px; /* Increased perspective for better depth on mobile */
+}
+
+.cards {
+  display: flex;
+  flex-direction: row; /* Horizontal layout for desktop */
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 25px;
+  perspective: 1000px;
+}
+
+.cards .card {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.inner {
-  position: absolute;
-  width: 180px; /* Slightly smaller for mobile compatibility */
-  height: 270px;
-  top: 15%;
-  left: calc(50% - 90px);
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-  transform: rotateX(-10deg) rotateY(var(--rotation, 0deg));
-  transition: transform 0s linear; /* Default to no transition for smooth requestAnimationFrame */
-  will-change: transform;
-  pointer-events: none; /* Prevent container from blocking clicks to cards in the back */
-}
-
-.inner.is-snapping {
-  transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-/* Remove autoRun animation as we'll control it via React */
-/* @keyframes autoRun { ... } */
-
-.inner:hover {
-  animation-play-state: paused;
-}
-
-.card {
-  position: absolute;
-  inset: 0 0 0 0;
-  transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) translateZ(var(--translateZ));
-  transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.3s; /* Snappier transition */
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-  will-change: transform;
-  pointer-events: auto; /* Re-enable pointer events for the cards */
+  flex-direction: column;
+  text-align: center;
+  height: 180px;
+  width: 280px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: transform 400ms, filter 400ms, box-shadow 400ms;
+  background-color: #121212; /* Black background for artisan style */
+  color: #ffd700; /* Gold text color */
+  border: 1px solid rgba(184, 134, 11, 0.4); /* Darker gold border */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transform-style: preserve-3d;
+  position: relative;
+  overflow: hidden;
 }
 
-.card img {
+.cards .card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, transparent 100%);
+  pointer-events: none;
+  transition: opacity 400ms;
+}
+
+.cards .card:hover::before {
+  opacity: 0;
+}
+
+.cards .card img {
+  position: absolute;
+  inset: 15px;
+  width: calc(100% - 30px);
+  height: calc(100% - 30px);
+  object-fit: cover;
+  opacity: 0.6;
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  filter: grayscale(100%) contrast(120%);
+  border: 2px solid rgba(255, 215, 0, 0.4);
+  border-radius: 8px;
+  z-index: 1;
+}
+
+.cards .card:hover img {
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Lighter shadow */
-  border: 1px solid rgba(213, 167, 118, 0.2);
-  transform: translateZ(0); /* Force hardware acceleration */
-  -webkit-transform: translateZ(0);
+  opacity: 1;
+  filter: grayscale(0%) contrast(100%);
+  border-color: #ffd700;
+  border-radius: 0;
 }
 
-@media (max-width: 768px) {
-  .card img {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Even simpler on mobile */
-    border: 0.5px solid rgba(213, 167, 118, 0.1);
-  }
+.cards .card .content {
+  position: relative;
+  z-index: 2;
+  padding: 20px;
+  background: transparent;
+  backdrop-filter: none;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.9;
+  transition: all 400ms ease;
 }
 
-/* Disable expensive blur and simplify hover on mobile to prevent jittering */
-@media (max-width: 768px) {
-  .card {
-    transition: transform 0.3s ease-out; /* Even faster on mobile */
-  }
-
-  .card:hover {
-    filter: none !important;
-    /* Use translate3d for better GPU acceleration on mobile */
-    transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) 
-               translate3d(0, 0, calc(var(--translateZ) + 20px)) 
-               scale(1.05) !important;
-    z-index: 100;
-  }
-  
-  .inner:hover > .card:not(:hover) {
-    filter: none !important;
-    opacity: 1; /* Don't dim others on mobile to save performance */
-    transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) 
-               translateZ(var(--translateZ));
-  }
+.cards .card:hover .content {
+  opacity: 0;
+  pointer-events: none;
 }
 
-.card:hover {
-  transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) 
-             translateZ(calc(var(--translateZ) + 50px)) 
-             scale(1.2) !important;
-  filter: blur(0px);
-  z-index: 100;
-  cursor: pointer;
+.cards .card p.tip {
+  font-family: "Noto Serif TC", serif;
+  font-size: 1.4em;
+  font-weight: 700;
+  color: #ffd700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  margin-bottom: 8px;
 }
 
-.inner:hover > .card:not(:hover) {
-  filter: blur(5px);
-  transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) 
-             translateZ(var(--translateZ)) 
-             scale(0.8);
+.cards .card p.second-text {
+  font-size: 0.8em;
+  color: rgba(255, 215, 0, 0.7);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.cards .card:hover {
+  transform: scale(1.1);
+  border-color: #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.cards:hover > .card:not(:hover) {
+  filter: blur(10px);
+  transform: scale(0.9);
   opacity: 0.6;
+}
+
+/* Media query for mobile responsiveness */
+@media (max-width: 768px) {
+  .cards {
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 20px;
+    align-items: center;
+  }
+
+  .cards .card {
+    width: 100%;
+    max-width: 350px;
+    height: 80px;
+  }
+
+  .cards .card p.tip {
+    font-size: 1.1em;
+    margin-bottom: 2px;
+  }
+
+  .cards .card p.second-text {
+    font-size: 0.6em;
+  }
+
+  .cards .card img {
+    inset: 8px;
+    width: calc(100% - 16px);
+    height: calc(100% - 16px);
+    opacity: 0.7;
+    filter: grayscale(0%);
+    border-width: 1px;
+  }
+
+  .cards .card:hover img {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+  }
+
+  .cards:hover > .card:not(:hover) {
+    filter: blur(5px);
+    transform: scale(0.95) rotateY(-3deg);
+  }
 }
 
 /* Custom Button Styles */

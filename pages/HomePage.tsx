@@ -15,9 +15,6 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const [brandStory, setBrandStory] = useState<string | null>(null);
   const [advertisements, setAdvertisements] = useState<any[]>([]);
   const [selectedAd, setSelectedAd] = useState<any | null>(null);
-  const [rotation, setRotation] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isSnapping, setIsSnapping] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { products, loading } = useMenu();
 
@@ -29,19 +26,6 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  useEffect(() => {
-    let animationFrameId: number;
-    const rotate = () => {
-      if (!isHovered && !isSnapping) {
-        setRotation(prev => (prev + 0.2)); // Slower rotation for smoother feel
-      }
-      animationFrameId = requestAnimationFrame(rotate);
-    };
-    
-    animationFrameId = requestAnimationFrame(rotate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isHovered, isSnapping]);
 
   useEffect(() => {
     // Fetch Master Image
@@ -73,29 +57,6 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       unsubscribeAds();
     };
   }, []);
-
-  const rotateToFront = (index: number) => {
-    setIsHovered(true);
-    setIsSnapping(true);
-    if (advertisements.length === 0) return;
-    
-    const anglePerItem = 360 / advertisements.length;
-    const targetAngle = -index * anglePerItem;
-    
-    // Find the nearest equivalent angle to current rotation
-    const currentRotationMod = rotation % 360;
-    let diff = (targetAngle - currentRotationMod) % 360;
-    
-    if (diff > 180) diff -= 360;
-    if (diff < -180) diff += 360;
-    
-    setRotation(rotation + diff);
-    
-    // Disable snapping after transition completes
-    setTimeout(() => {
-      setIsSnapping(false);
-    }, 800);
-  };
 
   const featuredProducts = products.filter(p => p.isFeatured).slice(0, 3);
   // Fallback if no featured products
@@ -178,7 +139,7 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      {/* Advertisement Section (3D Carousel) */}
+      {/* Advertisement Section (Artisan Black Gold Cards) */}
       <section className="bg-background-dark py-24 border-y border-white/5 overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -187,43 +148,15 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </div>
 
           {advertisements.length > 0 ? (
-            <div className="banner-container">
-              <div 
-                className={`inner ${isSnapping ? 'is-snapping' : ''}`} 
-                style={{ 
-                  '--quantity': advertisements.length,
-                  '--translateZ': isMobile 
-                    ? `${Math.max(180, advertisements.length * 25)}px` 
-                    : `${Math.max(220, advertisements.length * 35)}px`,
-                  '--rotation': `${rotation}deg`
-                } as React.CSSProperties}
-              >
-                {advertisements.map((ad, index) => (
-                  <div 
+            <div className="cards-wrapper">
+              <div className="cards">
+                {advertisements.map((ad) => (
+                  <MouseFollowCard 
                     key={ad.id} 
-                    className="card" 
-                    style={{ 
-                      '--index': index,
-                      '--quantity': advertisements.length,
-                      '--translateZ': isMobile 
-                        ? `${Math.max(180, advertisements.length * 25)}px` 
-                        : `${Math.max(220, advertisements.length * 35)}px`
-                    } as React.CSSProperties}
-                    onPointerEnter={() => setIsHovered(true)}
-                    onPointerLeave={() => setIsHovered(false)}
-                    onPointerDown={(e) => {
-                      rotateToFront(index);
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedAd(ad);
-                    }}
-                  >
-                    <img src={ad.imageUrl} alt={ad.title} />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-xs font-bold text-primary">{ad.title}</p>
-                    </div>
-                  </div>
+                    ad={ad} 
+                    onClick={() => setSelectedAd(ad)} 
+                    isMobile={isMobile}
+                  />
                 ))}
               </div>
             </div>
@@ -280,7 +213,7 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         <div className="kanji-bg -left-24 bottom-0 font-calligraphy opacity-10">貓</div>
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div className="order-2 md:order-1 relative z-10">
-            <h2 className="font-serif text-4xl sm:text-5xl font-black mb-8 leading-tight">職人之心<br/><span className="text-primary font-calligraphy text-6xl sm:text-7xl mt-2 block">Neko Master</span></h2>
+            <h2 className="font-serif text-4xl sm:text-5xl font-black mb-8 leading-tight">職人之心</h2>
             <div className="text-gray-400 mb-12 leading-relaxed text-lg font-serif whitespace-pre-wrap">
               {brandStory || (
                 <>
@@ -359,5 +292,48 @@ const ProductCard: React.FC<ProductCardProps> = ({ title, price, rating, img, ta
     </div>
   </div>
 );
+
+const MouseFollowCard: React.FC<{ ad: any, onClick: () => void, isMobile: boolean }> = ({ ad, onClick, isMobile }) => {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [transform, setTransform] = useState('rotateX(0deg) rotateY(0deg)');
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isMobile || !cardRef.current) return;
+    
+    const card = cardRef.current;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    const rotateX = (centerY - y) / 10;
+    const rotateY = (x - centerX) / 10;
+    
+    setTransform(`rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.1)`);
+  };
+
+  const handleMouseLeave = () => {
+    setTransform('rotateX(0deg) rotateY(0deg) scale(1)');
+  };
+
+  return (
+    <div 
+      ref={cardRef}
+      className="card"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      style={{ transform }}
+    >
+      <img src={ad.imageUrl} alt={ad.title} />
+      <div className="content">
+        <p className="tip">{ad.title}</p>
+        <p className="second-text">職人推薦 • 琥珀時光</p>
+      </div>
+    </div>
+  );
+};
 
 export default HomePage;

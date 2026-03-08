@@ -360,8 +360,10 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
     if (window.confirm("確定要刪除此廣告嗎？")) {
       try {
         await deleteDoc(doc(db, "advertisements", id));
+        alert("廣告已刪除");
       } catch (error) {
         console.error("Error deleting advertisement:", error);
+        alert("刪除失敗，請稍後再試");
       }
     }
   };
