@@ -3,6 +3,18 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Colors */
+  --color-primary: #d5a776;
+  --color-background-light: #f8f7f6;
+  --color-background-dark: #1a1a1a;
+  --color-ink-black: #0f0f0f;
+
+  /* Custom Fonts */
+  --font-display: "Inter", "Noto Serif TC", "sans-serif";
+  --font-serif: "Noto Serif TC", "serif";
+  --font-brand: "Cinzel", "serif";
+  --font-calligraphy: "Ma Shan Zheng", "Zhi Mang Xing", "Noto Serif TC", "serif";
 }
 
 /* Artisan Black Gold Card List */
