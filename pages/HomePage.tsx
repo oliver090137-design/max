@@ -215,7 +215,7 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           <div className="order-2 md:order-1 relative z-10">
             <h2 className="font-serif text-4xl sm:text-5xl font-black mb-8 leading-tight">職人之心</h2>
             <div className="text-gray-400 mb-12 leading-relaxed text-lg font-serif whitespace-pre-wrap">
-              {brandStory || (
+              {brandStory ? brandStory.replace(/^故事[\s\n]*/, '') : (
                 <>
                   在蒸騰的熱氣與深琥珀色的滷汁背後，藏著傳承數代的美味秘辛。我們的品牌精神「貓掌櫃」，象徵著如貓般的優雅、精準與耐心。<br/><br/>
                   每一份食材都在12種傳統辛香料調製的秘滷中慢火細熬 48 小時，確保每一口都能捕捉到深夜夜市的靈魂。這不僅僅是食物，更是一種深夜的療癒儀式。
